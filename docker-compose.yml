@@ -1,0 +1,54 @@
+services:
+  dev:
+    build: .
+    image: trivium-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - deps:/app/deps
+      - build:/app/_build
+      - /home/yuhigawa/.claude:/home/yuhigawa/.claude
+      - /home/yuhigawa/.claude.json:/home/yuhigawa/.claude.json
+      - /home/yuhigawa/.local/share/claude:/home/yuhigawa/.local/share/claude:ro
+      - /home/yuhigawa/.local/bin:/home/yuhigawa/.local/bin:ro
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - MIX_ENV=dev
+      - HOME=/home/yuhigawa
+    stdin_open: true
+    tty: true
+
+  test:
+    build: .
+    image: trivium-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - deps:/app/deps
+      - build:/app/_build
+    environment:
+      - MIX_ENV=test
+    command: mix test
+
+  run:
+    build: .
+    image: trivium-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - deps:/app/deps
+      - build:/app/_build
+      - /home/yuhigawa/.claude:/home/yuhigawa/.claude
+      - /home/yuhigawa/.claude.json:/home/yuhigawa/.claude.json
+      - /home/yuhigawa/.local/share/claude:/home/yuhigawa/.local/share/claude:ro
+      - /home/yuhigawa/.local/bin:/home/yuhigawa/.local/bin:ro
+    environment:
+      - MIX_ENV=prod
+      - HOME=/home/yuhigawa
+    stdin_open: true
+    tty: true
+    command: ./trivium
+
+volumes:
+  deps:
+  build:

@@ -1,0 +1,9 @@
+_build
+deps
+.elixir_ls
+.git
+*.ez
+cover
+doc
+tmp
+.env
