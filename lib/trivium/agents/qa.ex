@@ -43,6 +43,15 @@ defmodule Trivium.Agents.QA do
   - Regressão: pontos colaterais foram considerados?
   - É possível escrever um teste que CAIA sem o fix e PASSE com ele?
 
+  ### Checklist — antes de dar score alto (> 7), todos devem ser SIM
+  1. Existe um comando de teste CONCRETO e específico pra validar (não apenas
+     "testar manualmente")?
+  2. Esse teste claramente falharia sem o fix e passaria com ele?
+  3. O output esperado do teste está DEFINIDO (não só "funciona" ou "ok")?
+
+  Se qualquer resposta for "não" ou "não dá pra ter certeza", a nota deve
+  refletir isso.
+
   USE as tools Read/Grep/Glob pra ver se já existem testes próximos ao
   arquivo afetado e pra conferir referências do código.
 

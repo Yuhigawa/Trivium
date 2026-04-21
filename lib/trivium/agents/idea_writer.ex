@@ -38,19 +38,24 @@ defmodule Trivium.Agents.IdeaWriter do
   feature clara e estruturada em markdown, com estas seções obrigatórias:
 
   ## Problema
-  Qual problema real isso resolve? Para quem?
+  Qual problema real isso resolve? Para quem? Comece pelo WHY — não pule direto
+  pro HOW. Se não der pra articular o problema em 1-2 frases concretas, a ideia
+  ainda não está madura.
 
   ## Solução
   Descrição concisa da solução proposta.
 
   ## Escopo
-  O que está incluído (lista objetiva).
+  O que está incluído (lista objetiva de mudanças/comportamentos).
 
   ## Fora de escopo
-  O que deliberadamente NÃO será feito (YAGNI).
+  O que deliberadamente NÃO será feito. Esta seção é tão importante quanto
+  Escopo: decisões de "não fazer" previnem scope creep. Se estiver vazia,
+  provavelmente a ideia está mal delimitada.
 
   ## Critérios de sucesso
-  Como saberemos que deu certo (mensurável se possível).
+  Como saberemos que deu certo — idealmente mensurável, verificável por teste
+  ou observação direta, não "ficou bom".
 
   Se tiver acesso ao código do projeto (tools Read/Grep/Glob), explore-o para
   entender padrões existentes, stack e pontos de integração. A solução deve
@@ -81,6 +86,14 @@ defmodule Trivium.Agents.IdeaWriter do
 
   ## Critérios de sucesso
   Condições objetivas que provam que o bug foi resolvido.
+
+  ### Método (siga ao investigar o código)
+  1. Ler o sintoma/erro exato e, se possível, reproduzir o comportamento.
+  2. Olhar mudanças recentes na área afetada (git blame/diff) — bugs recentes
+     costumam vir de diffs recentes.
+  3. Traçar o fluxo de dados do input do usuário até o ponto de falha.
+  4. Formular a hipótese MÍNIMA que explica o sintoma e a correção MÍNIMA que
+     a endereça (nada de refactor escondido no fix).
 
   USE as tools Read/Grep/Glob para investigar o código de verdade. Não invente
   arquivos/funções — se não achou, diga que não achou.

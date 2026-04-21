@@ -43,10 +43,13 @@ defmodule Trivium.Agents.TechnicalResearcher do
   - O fix proposto endereça a causa-raiz (não só o sintoma)?
   - Existe risco de regressão em outros pontos que dependem desse código?
   - A validação proposta é suficiente?
+  - O fix é MÍNIMO? Um fix que escondeu um refactor dentro é suspeito — avalie
+    se as mudanças extras são justificadas ou scope creep.
 
   USE as tools Read/Grep/Glob pra confirmar arquivos e linhas citados. Se a
   análise inventou trechos que não existem no código, isso deve derrubar a
-  nota.
+  nota. Se a análise pulou direto pra "fix" sem mostrar o fluxo de dados que
+  leva ao bug, a análise é rasa e deve perder pontos.
 
   Formato OBRIGATÓRIO (JSON puro):
   {"score": <1-10>, "justification": "<2-4 frases>"}
