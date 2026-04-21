@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Trivium CLI wrapper — runs the escript inside Docker so you don't need
+# Elixir/Erlang on the host. Detects `--path <dir>` in the arguments and
+# bind-mounts it read-only into the container at the same absolute path, so
+# agents can read the real project files.
+#
+# Usage (same as the native CLI):
+#   trivium
+#   trivium --path /some/project --type bug --task "description"
+#
+# Exit codes are preserved from the trivium binary:
+#   0 approved | 1 error | 2 rejected
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Resolve an absolute --path (if provided) and rewrite it in place so the
+# container sees the same absolute path we mount into it.
+ARGS=("$@")
+MOUNT_ARGS=()
+
+for i in "${!ARGS[@]}"; do
+  if [[ "${ARGS[$i]}" == "--path" && $((i + 1)) -lt ${#ARGS[@]} ]]; then
+    raw="${ARGS[$((i + 1))]}"
+    if [[ -d "$raw" ]]; then
+      abs="$(cd "$raw" && pwd -P)"
+      ARGS[$((i + 1))]="$abs"
+      MOUNT_ARGS+=("-v" "$abs:$abs:ro")
+    fi
+  fi
+done
+
+cd "$PROJECT_ROOT"
+
+# Ensure the escript is built (first-run convenience). Silent if already there.
+if [[ ! -x "$PROJECT_ROOT/trivium" ]]; then
+  docker compose run --rm -T dev sh -c "MIX_ENV=prod mix deps.get && MIX_ENV=prod mix escript.build" >&2
+fi
+
+exec docker compose run --rm -T "${MOUNT_ARGS[@]}" dev ./trivium "${ARGS[@]}"

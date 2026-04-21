@@ -211,6 +211,31 @@ APIs without rate limiting are vulnerable to abuse...
 | Task type | — | `--type bug\|feature\|analysis` |
 | Task description | — | `--task "..."` |
 
+## Claude Code plugin
+
+Trivium ships as a Claude Code plugin. From any project, run the gates as slash commands — Trivium runs in Docker, so no Elixir install needed.
+
+### Install
+
+```bash
+# from a Claude Code session
+/plugin install Yuhigawa/Trivium
+```
+
+(Or add this repo as a local plugin under `.claude/plugins/trivium/`.)
+
+### Commands
+
+- `/trivium-bug <description>` — root-cause analysis + fix proposal
+- `/trivium-feature <description>` — problem/solution/scope spec
+- `/trivium-analysis <description>` — findings-only pass (no solution proposed)
+
+Each command runs against `$PWD` and invokes the `bin/trivium` wrapper in this repo, which handles Docker + dynamic path mounting automatically. If Docker isn't running, the command fails fast with a clear error.
+
+### Skill
+
+The plugin also registers a `trivium` skill with auto-activation triggers — when the user says "gate this first", "get a second opinion", "mapear X", etc., Claude Code picks up Trivium as the right tool.
+
 ## Development
 
 ```bash
