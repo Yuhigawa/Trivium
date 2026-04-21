@@ -1,19 +1,29 @@
 defmodule Trivium.Report do
   @moduledoc "Formata o resultado final em markdown legível para humano."
 
-  alias Trivium.Types.{Attempt, Result, Review}
+  alias Trivium.Types.{Attempt, ProjectContext, Result, Review}
 
   def format(%Result{} = result) do
     [
+      project_block(result),
       header(result),
-      "",
       final_block(result),
-      "",
       scores_block(result),
-      "",
       history_block(result)
     ]
-    |> Enum.join("\n")
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("\n\n")
+  end
+
+  defp project_block(%Result{project_context: nil}), do: ""
+
+  defp project_block(%Result{project_context: %ProjectContext{} = ctx}) do
+    """
+    Project: #{ctx.path}
+    Type:    #{ctx.type}
+    Task:    #{ctx.task}
+    """
+    |> String.trim_trailing()
   end
 
   defp header(%Result{status: :approved, attempts: attempts}) do

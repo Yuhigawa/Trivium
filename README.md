@@ -93,14 +93,80 @@ docker compose run --rm dev sh -c "MIX_ENV=prod mix escript.build"
 docker compose run --rm run
 ```
 
-You'll drop into a REPL:
+Trivium has two modes:
+
+- **Idea mode (REPL)** — no project, just task text. You'll drop into a REPL:
+  ```
+  Trivium v0.1 — multi-agent task evaluator
+  > build a rate-limiter middleware for a REST API
+  ```
+- **Project mode (one-shot)** — run against a real codebase. See below.
+
+## Project mode
+
+Run all three reviewers against a real codebase. Requires the `ClaudeCLI` backend so agents can use `Read`, `Grep`, and `Glob` tools on the project directory (read-only).
+
+```bash
+trivium \
+  --path /path/to/project \
+  --type <bug|feature|analysis> \
+  --task "<description>"
+```
+
+All three flags are required together (or none — then REPL runs).
+
+### Task types
+
+| `--type` | idea-writer produces | tech reviews | qa reviews |
+|---|---|---|---|
+| `bug` / `bug_fix` | Hipótese / Causa-raiz / Fix / Validação / Critérios | Is the root-cause correct? Fix addresses it? Regression risk? | Is the fix testable? Validation robust? Can you write a failing test that passes post-fix? |
+| `feature` | Problem / Solution / Scope / Out-of-scope / Success criteria | Viable in existing stack? Complexity? Integration risks? | Testable criteria? Edge cases? Scope well-bounded? |
+| `analysis` | Context / Findings / Recommendations / Risks / Next steps | Technical depth, coverage of the right files, grounded claims | Actionable findings? Ambiguity? Gaps? |
+
+Scoring is identical across types: each agent scores 1–10, all three must score above 7, refinement loop up to `--max-attempts` otherwise.
+
+Exit codes:
+- `0` — approved
+- `1` — error (bad args, LLM failure, etc.)
+- `2` — rejected (ran to completion, didn't pass)
+
+### Example
+
+```bash
+$ trivium --path /srv/my-api --type bug --task "users get 500 on login when email has '+'"
+
+Project: /srv/my-api
+Type:    bug_fix
+Task:    users get 500 on login when email has '+'
+
+───── FINAL REPORT ─────
+Status: ✅ APPROVED after 1 attempt
+
+## Final idea
+
+## Hipótese
+Parser de e-mail em `lib/auth.ex` não trata `+` como válido no local-part.
+
+## Causa-raiz
+`lib/auth.ex:47` usa `Regex.run(~r/.../, email)` com regex restritivo que rejeita `+`.
+...
+
+## Scores
+
+- idea-writer:   9/10 — root-cause backed by specific file/line
+- tech-research: 8/10 — fix addresses the actual cause, not symptom
+- qa:            8/10 — validation testable, regression plan clear
+```
+
+### From Claude Code
+
+Since Trivium runs one-shot with predictable exit codes, you can call it from a coding session:
 
 ```
-Trivium v0.1 — multi-agent task evaluator
-Type your task. Ctrl+D or `exit` to quit.
-
-> build a rate-limiter middleware for a REST API
+bash(trivium --path $PWD --type analysis --task "mapear módulos com alta dívida técnica")
 ```
+
+Capture the output, feed it back as context for planning.
 
 ## Example output
 
@@ -141,6 +207,9 @@ APIs without rate limiting are vulnerable to abuse...
 | API key (for `Anthropic` client) | — | `ANTHROPIC_API_KEY` env |
 | Approval threshold | `> 7` | `config/config.exs` (`approval_threshold`) |
 | Model per role | Opus / Sonnet / Haiku | `config/config.exs` (`models`) |
+| Project dir | — | `--path DIR` (requires `--type` + `--task`) |
+| Task type | — | `--type bug\|feature\|analysis` |
+| Task description | — | `--task "..."` |
 
 ## Development
 

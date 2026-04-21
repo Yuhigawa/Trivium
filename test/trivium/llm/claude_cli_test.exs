@@ -102,6 +102,31 @@ defmodule Trivium.LLM.ClaudeCLITest do
       args = ClaudeCLI.build_args("m", "")
       refute "--append-system-prompt" in args
     end
+
+    test "passa --add-dir quando :add_dir na opts" do
+      args = ClaudeCLI.build_args("m", "", add_dir: "/tmp/proj")
+      idx = Enum.find_index(args, &(&1 == "--add-dir"))
+      assert idx != nil
+      assert Enum.at(args, idx + 1) == "/tmp/proj"
+    end
+
+    test "ignora :add_dir nil ou vazio" do
+      refute "--add-dir" in ClaudeCLI.build_args("m", "", add_dir: nil)
+      refute "--add-dir" in ClaudeCLI.build_args("m", "", add_dir: "")
+    end
+
+    test "allowed_tools sobrescreve allowedTools default (vazio)" do
+      args = ClaudeCLI.build_args("m", "", allowed_tools: "Read Grep Glob")
+      idx = Enum.find_index(args, &(&1 == "--allowedTools"))
+      assert idx != nil
+      assert Enum.at(args, idx + 1) == "Read Grep Glob"
+    end
+
+    test "allowed_tools default continua sendo '' (sem tools)" do
+      args = ClaudeCLI.build_args("m", "")
+      idx = Enum.find_index(args, &(&1 == "--allowedTools"))
+      assert Enum.at(args, idx + 1) == ""
+    end
   end
 
   describe "parse_output/1" do

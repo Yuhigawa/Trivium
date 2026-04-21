@@ -98,6 +98,69 @@ defmodule Trivium.OrchestratorTest do
     end
   end
 
+  describe "project_context propagation" do
+    test "todos os agentes recebem o mesmo project_context" do
+      Mock.set_script(:idea_writer, ["idea"])
+      Mock.set_script(:idea_writer_review, [~s({"score": 9, "justification": "ok"})])
+      Mock.set_script(:technical_researcher, [~s({"score": 8, "justification": "ok"})])
+      Mock.set_script(:qa, [~s({"score": 8, "justification": "ok"})])
+
+      ctx = %Trivium.Types.ProjectContext{path: "/tmp", type: :bug_fix, task: "login bug"}
+
+      Orchestrator.evaluate("login bug",
+        llm_client: Mock,
+        max_attempts: 1,
+        threshold: 7,
+        project_context: ctx
+      )
+
+      calls = Mock.calls()
+
+      agent_calls =
+        Enum.filter(calls, fn c ->
+          c.opts[:role] in [:idea_writer, :technical_researcher, :qa]
+        end)
+
+      assert length(agent_calls) == 3
+
+      Enum.each(agent_calls, fn c ->
+        assert c.opts[:add_dir] == "/tmp",
+               "role #{c.opts[:role]} não recebeu add_dir"
+
+        assert c.opts[:allowed_tools] == "Read Grep Glob"
+      end)
+    end
+
+    test "Result.project_context vem preenchido quando passado" do
+      Mock.set_script(:idea_writer, ["idea"])
+      Mock.set_script(:idea_writer_review, [~s({"score": 9, "justification": "ok"})])
+      Mock.set_script(:technical_researcher, [~s({"score": 8, "justification": "ok"})])
+      Mock.set_script(:qa, [~s({"score": 8, "justification": "ok"})])
+
+      ctx = %Trivium.Types.ProjectContext{path: "/tmp", type: :feature, task: "x"}
+
+      result =
+        Orchestrator.evaluate("x",
+          llm_client: Mock,
+          max_attempts: 1,
+          project_context: ctx
+        )
+
+      assert result.project_context == ctx
+    end
+
+    test "Result.project_context é nil quando não passado (backward-compat)" do
+      Mock.set_script(:idea_writer, ["idea"])
+      Mock.set_script(:idea_writer_review, [~s({"score": 9, "justification": "ok"})])
+      Mock.set_script(:technical_researcher, [~s({"score": 8, "justification": "ok"})])
+      Mock.set_script(:qa, [~s({"score": 8, "justification": "ok"})])
+
+      result = Orchestrator.evaluate("x", llm_client: Mock, max_attempts: 1)
+
+      assert result.project_context == nil
+    end
+  end
+
   describe "isolamento arquitetural" do
     test "QA e TechnicalResearcher NUNCA recebem output um do outro" do
       qa_sentinel = "QA_SENTINEL_#{System.unique_integer([:positive])}"

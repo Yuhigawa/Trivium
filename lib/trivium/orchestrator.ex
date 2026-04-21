@@ -11,18 +11,22 @@ defmodule Trivium.Orchestrator do
 
   Isolamento garantido: cada agente roda em `Task.async` separado e recebe só
   o que precisa. Orchestrator é o único que vê todos os outputs.
+
+  Quando recebe `:project_context` nas opts, propaga aos 4 agentes e carrega
+  no Result final (para o Report exibir header).
   """
 
   alias Trivium.{Config, Events}
   alias Trivium.Agents.{IdeaWriter, TechnicalResearcher, QA}
-  alias Trivium.Types.{Attempt, Result}
+  alias Trivium.Types.{Attempt, ProjectContext, Result}
 
   @type opts :: [
           session_id: term(),
           max_attempts: pos_integer(),
           threshold: integer(),
           llm_client: module(),
-          stream: boolean()
+          stream: boolean(),
+          project_context: ProjectContext.t() | nil
         ]
 
   @spec evaluate(String.t(), opts()) :: Result.t()
@@ -32,6 +36,7 @@ defmodule Trivium.Orchestrator do
     threshold = Keyword.get(opts, :threshold, Config.approval_threshold())
     llm_client = Keyword.get(opts, :llm_client, Config.llm_client())
     stream? = Keyword.get(opts, :stream, false)
+    project_context = Keyword.get(opts, :project_context)
 
     Events.publish(session_id, :session_started)
 
@@ -40,7 +45,7 @@ defmodule Trivium.Orchestrator do
         Events.publish(session_id, {:attempt_started, n, max_attempts})
         previous = Enum.reverse(acc)
 
-        case run_attempt(n, task, previous, session_id, llm_client, stream?, threshold) do
+        case run_attempt(n, task, previous, session_id, llm_client, stream?, project_context) do
           {:ok, %Attempt{} = attempt} ->
             if all_pass?(attempt.reviews, threshold) do
               Events.publish(session_id, {:scores_computed, attempt.reviews, :pass})
@@ -51,17 +56,24 @@ defmodule Trivium.Orchestrator do
             end
 
           {:error, reason} ->
-            result = %Result{status: :error, attempts: Enum.reverse(acc), final_idea: nil, final_reviews: nil}
+            result = %Result{
+              status: :error,
+              attempts: Enum.reverse(acc),
+              final_idea: nil,
+              final_reviews: nil,
+              project_context: project_context
+            }
+
             Events.publish(session_id, {:agent_error, :orchestrator, reason})
             Events.publish(session_id, {:session_finished, result})
             {:halt, {:error, reason, acc}}
         end
       end)
 
-    build_result(attempts, threshold, session_id)
+    build_result(attempts, threshold, session_id, project_context)
   end
 
-  defp run_attempt(n, task, previous_attempts, session_id, llm_client, stream?, _threshold) do
+  defp run_attempt(n, task, previous_attempts, session_id, llm_client, stream?, project_context) do
     chunk = chunk_handler(session_id)
 
     Events.publish(session_id, {:agent_started, :idea_writer})
@@ -69,12 +81,15 @@ defmodule Trivium.Orchestrator do
     case IdeaWriter.run(task, previous_attempts,
            llm_client: llm_client,
            stream: stream?,
-           chunk_handler: chunk.(:idea_writer)
+           chunk_handler: chunk.(:idea_writer),
+           project_context: project_context
          ) do
       {:ok, idea} ->
         Events.publish(session_id, {:agent_finished, :idea_writer, :idea, idea})
 
-        reviews = run_reviews_in_parallel(idea, session_id, llm_client, stream?, chunk)
+        reviews =
+          run_reviews_in_parallel(idea, session_id, llm_client, stream?, chunk, project_context)
+
         {:ok, %Attempt{n: n, idea: idea, reviews: reviews}}
 
       {:error, reason} ->
@@ -83,7 +98,7 @@ defmodule Trivium.Orchestrator do
     end
   end
 
-  defp run_reviews_in_parallel(idea, session_id, llm_client, stream?, chunk) do
+  defp run_reviews_in_parallel(idea, session_id, llm_client, stream?, chunk, project_context) do
     [
       Task.Supervisor.async(Trivium.AgentTasks, fn ->
         Events.publish(session_id, {:agent_started, :idea_writer})
@@ -108,7 +123,8 @@ defmodule Trivium.Orchestrator do
         case TechnicalResearcher.run(idea,
                llm_client: llm_client,
                stream: stream?,
-               chunk_handler: chunk.(:technical_researcher)
+               chunk_handler: chunk.(:technical_researcher),
+               project_context: project_context
              ) do
           {:ok, review} ->
             Events.publish(session_id, {:agent_finished, :technical_researcher, :review, review})
@@ -125,7 +141,8 @@ defmodule Trivium.Orchestrator do
         case QA.run(idea,
                llm_client: llm_client,
                stream: stream?,
-               chunk_handler: chunk.(:qa)
+               chunk_handler: chunk.(:qa),
+               project_context: project_context
              ) do
           {:ok, review} ->
             Events.publish(session_id, {:agent_finished, :qa, :review, review})
@@ -151,16 +168,19 @@ defmodule Trivium.Orchestrator do
     length(reviews) == 3 and Enum.all?(reviews, &(&1.score > threshold))
   end
 
-  defp build_result({:error, reason, acc}, _threshold, _session_id) do
+  defp build_result({:error, reason, acc}, _threshold, _session_id, project_context) do
     %Result{
       status: :error,
       attempts: Enum.reverse(acc),
       final_idea: nil,
-      final_reviews: [%Trivium.Types.Review{role: :idea_writer, score: 0, justification: inspect(reason)}]
+      final_reviews: [
+        %Trivium.Types.Review{role: :idea_writer, score: 0, justification: inspect(reason)}
+      ],
+      project_context: project_context
     }
   end
 
-  defp build_result(attempts, threshold, session_id) when is_list(attempts) do
+  defp build_result(attempts, threshold, session_id, project_context) when is_list(attempts) do
     ordered = Enum.reverse(attempts)
     last = List.last(ordered)
 
@@ -175,7 +195,8 @@ defmodule Trivium.Orchestrator do
       status: status,
       attempts: ordered,
       final_idea: last && last.idea,
-      final_reviews: last && last.reviews
+      final_reviews: last && last.reviews,
+      project_context: project_context
     }
 
     Events.publish(session_id, {:session_finished, result})

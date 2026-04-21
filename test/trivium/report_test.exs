@@ -2,7 +2,7 @@ defmodule Trivium.ReportTest do
   use ExUnit.Case, async: true
 
   alias Trivium.Report
-  alias Trivium.Types.{Attempt, Idea, Result, Review}
+  alias Trivium.Types.{Attempt, Idea, ProjectContext, Result, Review}
 
   defp review(role, score), do: %Review{role: role, score: score, justification: "j"}
 
@@ -24,6 +24,52 @@ defmodule Trivium.ReportTest do
     assert report =~ "APPROVED"
     assert report =~ "9/10"
     refute report =~ "Attempt history"
+  end
+
+  test "Report com project_context imprime header com path/type/task" do
+    attempt = %Attempt{
+      n: 1,
+      idea: %Idea{content: "x"},
+      reviews: [review(:idea_writer, 9), review(:technical_researcher, 8), review(:qa, 8)]
+    }
+
+    ctx = %ProjectContext{path: "/meu/proj", type: :bug_fix, task: "login mobile bug"}
+
+    result = %Result{
+      status: :approved,
+      attempts: [attempt],
+      final_idea: attempt.idea,
+      final_reviews: attempt.reviews,
+      project_context: ctx
+    }
+
+    report = Report.format(result)
+    assert report =~ "Project: /meu/proj"
+    assert report =~ "Type:"
+    assert report =~ "bug_fix"
+    assert report =~ "Task:"
+    assert report =~ "login mobile bug"
+    assert report =~ "APPROVED"
+  end
+
+  test "Report sem project_context NÃO imprime header de projeto" do
+    attempt = %Attempt{
+      n: 1,
+      idea: %Idea{content: "x"},
+      reviews: [review(:idea_writer, 9), review(:technical_researcher, 8), review(:qa, 8)]
+    }
+
+    result = %Result{
+      status: :approved,
+      attempts: [attempt],
+      final_idea: attempt.idea,
+      final_reviews: attempt.reviews
+    }
+
+    report = Report.format(result)
+    refute report =~ "Project:"
+    refute report =~ "Type:"
+    refute report =~ "Task:"
   end
 
   test "rejected com múltiplas tentativas mostra histórico" do

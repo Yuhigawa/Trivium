@@ -9,7 +9,7 @@ defmodule Trivium.FunctionalTest do
 
   alias Trivium.{Orchestrator, REPL, Renderer, Report}
   alias Trivium.LLM.Mock
-  alias Trivium.Types.{Idea, Result}
+  alias Trivium.Types.{Idea, ProjectContext, Result}
 
   setup do
     case Process.whereis(Mock) do
@@ -161,6 +161,88 @@ defmodule Trivium.FunctionalTest do
       assert output =~ "Starting evaluation"
       assert output =~ "attempt 1/1"
       assert output =~ "approved"
+    end
+  end
+
+  describe "project mode end-to-end" do
+    test "bug_fix: pipeline completo com ProjectContext preserva no Result e no Report" do
+      Mock.set_script(:idea_writer, [
+        "## Hipótese\nracetimeout\n## Causa-raiz\nbugzinho\n## Fix proposto\n..."
+      ])
+
+      Mock.set_script(:idea_writer_review, [~s({"score": 9, "justification": "ok"})])
+      Mock.set_script(:technical_researcher, [~s({"score": 8, "justification": "viável"})])
+      Mock.set_script(:qa, [~s({"score": 8, "justification": "testável"})])
+
+      ctx = %ProjectContext{path: "/tmp", type: :bug_fix, task: "corrigir login"}
+
+      result =
+        Orchestrator.evaluate("corrigir login",
+          llm_client: Mock,
+          max_attempts: 1,
+          project_context: ctx
+        )
+
+      assert %Result{status: :approved, project_context: ^ctx} = result
+
+      report = Report.format(result)
+      assert report =~ "Project: /tmp"
+      assert report =~ "bug_fix"
+      assert report =~ "corrigir login"
+      assert report =~ "APPROVED"
+    end
+
+    test "analysis: agentes recebem tools readonly + add_dir" do
+      Mock.set_script(:idea_writer, ["## Contexto\n## Findings\n## Recomendações\n..."])
+      Mock.set_script(:idea_writer_review, [~s({"score": 8, "justification": "ok"})])
+      Mock.set_script(:technical_researcher, [~s({"score": 8, "justification": "profund"})])
+      Mock.set_script(:qa, [~s({"score": 8, "justification": "acionavel"})])
+
+      ctx = %ProjectContext{path: "/tmp", type: :analysis, task: "mapear módulo auth"}
+
+      Orchestrator.evaluate("mapear módulo auth",
+        llm_client: Mock,
+        max_attempts: 1,
+        project_context: ctx
+      )
+
+      calls = Mock.calls()
+
+      for role <- [:idea_writer, :technical_researcher, :qa] do
+        call = Enum.find(calls, &(&1.opts[:role] == role))
+
+        assert call.opts[:add_dir] == "/tmp",
+               "agente #{role} não recebeu add_dir"
+
+        assert call.opts[:allowed_tools] == "Read Grep Glob"
+      end
+    end
+
+    test "feature: prompts mudam mas pipeline é idêntico" do
+      Mock.set_script(:idea_writer, ["## Problema\n## Solução\n..."])
+      Mock.set_script(:idea_writer_review, [~s({"score": 9, "justification": "ok"})])
+      Mock.set_script(:technical_researcher, [~s({"score": 8, "justification": "viável"})])
+      Mock.set_script(:qa, [~s({"score": 8, "justification": "testável"})])
+
+      ctx = %ProjectContext{path: "/tmp", type: :feature, task: "exportar CSV"}
+
+      result =
+        Orchestrator.evaluate("exportar CSV",
+          llm_client: Mock,
+          max_attempts: 1,
+          project_context: ctx
+        )
+
+      assert result.status == :approved
+
+      # valida que o system prompt do idea_writer foi o de feature
+      idea_call =
+        Mock.calls()
+        |> Enum.reverse()
+        |> Enum.find(&(&1.opts[:role] == :idea_writer))
+
+      sys = Enum.find(idea_call.messages, &(&1.role == "system"))
+      assert sys.content =~ "feature" or sys.content =~ "Solução"
     end
   end
 

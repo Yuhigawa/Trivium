@@ -61,13 +61,22 @@ defmodule Trivium.LLM.ClaudeCLI do
   end
 
   @doc false
-  def build_args(model, system_text, _opts \\ []) do
+  def build_args(model, system_text, opts \\ []) do
+    allowed_tools = Keyword.get(opts, :allowed_tools, "")
+
     base = [
       "-p",
       "--model", model,
       "--output-format", "json",
-      "--allowedTools", ""
+      "--allowedTools", allowed_tools
     ]
+
+    base =
+      case Keyword.get(opts, :add_dir) do
+        nil -> base
+        "" -> base
+        path when is_binary(path) -> base ++ ["--add-dir", path]
+      end
 
     case system_text do
       "" -> base

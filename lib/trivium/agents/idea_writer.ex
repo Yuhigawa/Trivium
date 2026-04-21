@@ -3,12 +3,16 @@ defmodule Trivium.Agents.IdeaWriter do
   Gera ou refina a ideia. Recebe a task original e, opcionalmente, o histórico
   de tentativas anteriores com justificativas dos revisores que REPROVARAM —
   nunca vê as opiniões dos que aprovaram (isolamento da narrativa).
+
+  Quando recebe `:project_context`, o prompt ramifica por tipo (bug_fix /
+  feature / analysis) e o agente recebe acesso read-only ao diretório do
+  projeto via tools Read/Grep/Glob do Claude Code CLI.
   """
   @behaviour Trivium.Agents.Agent
 
   alias Trivium.Agents.Agent, as: AgentHelpers
   alias Trivium.Config
-  alias Trivium.Types.{Attempt, Idea}
+  alias Trivium.Types.{Attempt, Idea, ProjectContext}
 
   @impl true
   def role, do: :idea_writer
@@ -21,8 +25,7 @@ defmodule Trivium.Agents.IdeaWriter do
   Julgue:
   - A ideia está clara, coerente e completa?
   - O problema está bem definido e o valor está explícito?
-  - As seções (Problema, Solução, Escopo, Fora de escopo, Critérios) foram de
-    fato preenchidas com substância, não com vagueza?
+  - Todas as seções foram preenchidas com substância, não com vagueza?
 
   Dê uma nota 1-10 honesta. Se ficou confuso ou vago, diga.
 
@@ -30,11 +33,9 @@ defmodule Trivium.Agents.IdeaWriter do
   {"score": <1-10>, "justification": "<2-4 frases>"}
   """
 
-  @system_prompt """
-  Você é um idea-writer sênior. Sua tarefa é transformar um pedido do usuário em
-  uma IDEIA clara e estruturada para desenvolvimento.
-
-  Responda em markdown, com estas seções obrigatórias:
+  @feature_prompt """
+  Você é um idea-writer sênior. Transforme o pedido do usuário em uma IDEIA de
+  feature clara e estruturada em markdown, com estas seções obrigatórias:
 
   ## Problema
   Qual problema real isso resolve? Para quem?
@@ -51,23 +52,87 @@ defmodule Trivium.Agents.IdeaWriter do
   ## Critérios de sucesso
   Como saberemos que deu certo (mensurável se possível).
 
+  Se tiver acesso ao código do projeto (tools Read/Grep/Glob), explore-o para
+  entender padrões existentes, stack e pontos de integração. A solução deve
+  respeitar o estilo do projeto.
+
   Quando receber FEEDBACK de tentativas anteriores, trate cada crítica com rigor:
-  reescreva a ideia endereçando as objeções. Não se defenda — reformule.
+  reescreva endereçando as objeções. Não se defenda — reformule.
+  """
+
+  @bug_fix_prompt """
+  Você é um root-cause analyst sênior. Diagnostique o bug descrito e proponha um
+  fix, em markdown, com estas seções obrigatórias:
+
+  ## Hipótese
+  Hipóteses iniciais do que pode estar causando o problema (antes de investigar
+  o código).
+
+  ## Causa-raiz
+  Após ler o código (use as tools), identifique a causa-raiz EXATA com
+  referência a arquivos e linhas. Se não for possível determinar com confiança,
+  diga "não foi possível isolar com certeza" e explique porquê.
+
+  ## Fix proposto
+  Mudança específica — arquivos, funções, comportamento. Seja concreto.
+
+  ## Validação
+  Como confirmar que o fix resolve sem introduzir regressão.
+
+  ## Critérios de sucesso
+  Condições objetivas que provam que o bug foi resolvido.
+
+  USE as tools Read/Grep/Glob para investigar o código de verdade. Não invente
+  arquivos/funções — se não achou, diga que não achou.
+
+  Quando receber FEEDBACK de tentativas anteriores, reescreva endereçando as
+  objeções. Não se defenda — reformule.
+  """
+
+  @analysis_prompt """
+  Você é um code analyst sênior. Produza uma ANÁLISE do projeto ou área
+  indicada, em markdown, com estas seções obrigatórias:
+
+  ## Contexto
+  Resumo do que foi analisado — arquivos, módulos, fluxos cobertos.
+
+  ## Findings
+  Observações concretas com referências a arquivos/linhas. Fatos, não opiniões.
+
+  ## Recomendações
+  Sugestões derivadas dos findings. Priorize por impacto.
+
+  ## Riscos
+  Pontos frágeis, dívida técnica, armadilhas pro próximo trabalho.
+
+  ## Próximos passos
+  O que um planner faria em seguida com esses findings.
+
+  IMPORTANTE: você NÃO está propondo uma implementação. Não escreva "Solução"
+  ou "Escopo de desenvolvimento". Seu papel é mapear, não construir.
+
+  USE as tools Read/Grep/Glob para investigar o código. Afirmações sem base em
+  arquivos específicos devem ser evitadas.
+
+  Quando receber FEEDBACK de tentativas anteriores, reescreva endereçando as
+  objeções. Não se defenda — reformule.
   """
 
   def run(task, previous_attempts \\ [], opts \\ []) do
     client = Keyword.get(opts, :llm_client, Config.llm_client())
     stream? = Keyword.get(opts, :stream, false)
     chunk_handler = Keyword.get(opts, :chunk_handler, fn _ -> :ok end)
+    project_context = Keyword.get(opts, :project_context)
 
-    messages = build_messages(task, previous_attempts)
+    messages = build_messages(task, previous_attempts, project_context)
     model = Config.model_for(:idea_writer)
+    llm_opts = llm_opts(project_context, :idea_writer)
 
     result =
       if stream? do
-        client.stream(model, messages, [role: :idea_writer], chunk_handler)
+        client.stream(model, messages, llm_opts, chunk_handler)
       else
-        client.complete(model, messages, role: :idea_writer)
+        client.complete(model, messages, llm_opts)
       end
 
     case result do
@@ -105,33 +170,58 @@ defmodule Trivium.Agents.IdeaWriter do
     end
   end
 
-  defp build_messages(task, []) do
+  @doc false
+  def system_prompt(nil), do: @feature_prompt
+  def system_prompt(%ProjectContext{type: :bug_fix}), do: @bug_fix_prompt
+  def system_prompt(%ProjectContext{type: :feature}), do: @feature_prompt
+  def system_prompt(%ProjectContext{type: :analysis}), do: @analysis_prompt
+
+  defp llm_opts(nil, role), do: [role: role]
+
+  defp llm_opts(%ProjectContext{path: path}, role) do
+    [role: role, add_dir: path, allowed_tools: "Read Grep Glob"]
+  end
+
+  defp build_messages(task, [], project_context) do
     [
-      %{role: "system", content: @system_prompt},
-      %{role: "user", content: "Tarefa:\n\n#{task}\n\nGere a ideia inicial."}
+      %{role: "system", content: system_prompt(project_context)},
+      %{role: "user", content: user_message(task, project_context)}
     ]
   end
 
-  defp build_messages(task, previous_attempts) do
+  defp build_messages(task, previous_attempts, project_context) do
     feedback = format_feedback(previous_attempts)
 
     [
-      %{role: "system", content: @system_prompt},
+      %{role: "system", content: system_prompt(project_context)},
       %{
         role: "user",
         content: """
-        Tarefa original:
-
-        #{task}
+        #{user_message(task, project_context)}
 
         Tentativas anteriores e feedback de quem REPROVOU (score ≤ 7):
 
         #{feedback}
 
-        Reescreva a ideia endereçando essas objeções.
+        Reescreva endereçando essas objeções.
         """
       }
     ]
+  end
+
+  defp user_message(task, nil) do
+    "Tarefa:\n\n#{task}\n\nGere a ideia inicial."
+  end
+
+  defp user_message(task, %ProjectContext{path: path, type: type}) do
+    """
+    Projeto: #{path}
+    Tipo: #{type}
+
+    Tarefa:
+
+    #{task}
+    """
   end
 
   defp format_feedback(attempts) do
