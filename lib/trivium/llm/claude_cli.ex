@@ -36,7 +36,8 @@ defmodule Trivium.LLM.ClaudeCLI do
     end
   end
 
-  defp split_messages(messages) do
+  @doc false
+  def split_messages(messages) do
     {systems, users} =
       Enum.split_with(messages, fn m ->
         role = m[:role] || m["role"]
@@ -59,7 +60,8 @@ defmodule Trivium.LLM.ClaudeCLI do
     {system_text, user_text}
   end
 
-  defp build_args(model, system_text, _opts) do
+  @doc false
+  def build_args(model, system_text, _opts \\ []) do
     base = [
       "-p",
       "--model", model,
@@ -73,7 +75,8 @@ defmodule Trivium.LLM.ClaudeCLI do
     end
   end
 
-  defp parse_output(stdout) do
+  @doc false
+  def parse_output(stdout) do
     trimmed = String.trim(stdout)
 
     case Jason.decode(trimmed) do
@@ -84,7 +87,8 @@ defmodule Trivium.LLM.ClaudeCLI do
     end
   end
 
-  defp shell_quote(s) do
+  @doc false
+  def shell_quote(s) do
     "'" <> String.replace(s, "'", "'\\''") <> "'"
   end
 end

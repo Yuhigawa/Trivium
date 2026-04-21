@@ -79,7 +79,8 @@ defmodule Trivium.LLM.Anthropic do
     ]
   end
 
-  defp build_body(model, messages, opts, stream?) do
+  @doc false
+  def build_body(model, messages, opts, stream?) do
     {system, user_messages} = split_system(messages)
 
     base = %{
@@ -92,7 +93,8 @@ defmodule Trivium.LLM.Anthropic do
     if stream?, do: Map.put(base, :stream, true), else: base
   end
 
-  defp split_system(messages) do
+  @doc false
+  def split_system(messages) do
     {system_msgs, rest} = Enum.split_with(messages, &(&1[:role] == "system" or &1["role"] == "system"))
     system_text = system_msgs |> Enum.map(&(&1[:content] || &1["content"])) |> Enum.join("\n\n")
     rest = Enum.map(rest, &normalize_message/1)
@@ -106,15 +108,17 @@ defmodule Trivium.LLM.Anthropic do
   defp normalize_message(%{role: role, content: content}), do: %{role: role, content: content}
   defp normalize_message(%{"role" => role, "content" => content}), do: %{role: role, content: content}
 
-  defp extract_text(%{"content" => parts}) when is_list(parts) do
+  @doc false
+  def extract_text(%{"content" => parts}) when is_list(parts) do
     parts
     |> Enum.filter(&(&1["type"] == "text"))
     |> Enum.map_join("", & &1["text"])
   end
 
-  defp extract_text(_), do: ""
+  def extract_text(_), do: ""
 
-  defp parse_sse_chunks(data) when is_binary(data) do
+  @doc false
+  def parse_sse_chunks(data) when is_binary(data) do
     data
     |> String.split("\n")
     |> Enum.filter(&String.starts_with?(&1, "data: "))
