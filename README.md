@@ -217,12 +217,30 @@ Trivium ships as a Claude Code plugin. From any project, run the gates as slash 
 
 ### Install
 
-```bash
-# from a Claude Code session
-/plugin install Yuhigawa/Trivium
+The repo ships its own marketplace manifest, so installation is two slash commands in any Claude Code session:
+
+```
+/plugin marketplace add Yuhigawa/Trivium
+/plugin install trivium@trivium
 ```
 
-(Or add this repo as a local plugin under `.claude/plugins/trivium/`.)
+After install, verify with `/plugin` — you should see `trivium@trivium: enabled`.
+
+**Local development install** (when you have this repo cloned on your machine and want live edits to propagate):
+
+```
+/plugin marketplace add /absolute/path/to/Trivium
+/plugin install trivium@trivium
+```
+
+### Requirements on the user's machine
+
+The slash commands invoke `bin/trivium`, which runs the escript in Docker. So users need:
+
+- Docker with Compose plugin
+- A Claude Code subscription logged in on the host (`claude /login`) — the plugin bind-mounts `~/.claude` into the container to reuse the session
+
+No Elixir / Erlang on the host. First-run builds the image and compiles the escript automatically.
 
 ### Commands
 
