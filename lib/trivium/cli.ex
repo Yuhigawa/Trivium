@@ -66,7 +66,76 @@ defmodule Trivium.CLI do
     end
   end
 
-  defp run_review(_), do: System.halt(0)
+  defp run_review(rest) do
+    optimus =
+      Optimus.new!(
+        name: "trivium review",
+        description: "Review a diff against a plan",
+        allow_unknown_args: false,
+        args: [
+          plan: [
+            value_name: "PLAN_PATH",
+            help: "Path to the plan file",
+            required: true
+          ]
+        ],
+        options: [
+          path: [value_name: "DIR", long: "--path", help: "Project dir (defaults to plan's repo)", required: false]
+        ]
+      )
+
+    %{args: %{plan: plan_path}, options: %{path: opt_path}} = Optimus.parse!(optimus, rest)
+
+    with {:ok, md} <- File.read(plan_path),
+         {:ok, plan} <- Trivium.Build.PlanIO.decode(md),
+         repo_path = opt_path || infer_repo(plan_path),
+         {:ok, diff} <- git_diff(repo_path, plan.base_ref),
+         :nonempty <- nonempty(diff),
+         {:ok, review} <- Trivium.Build.Agents.Reviewer.run(plan, diff, []),
+         review_body = format_review(review),
+         {:ok, updated} <- Trivium.Build.PlanIO.append_review(md, review_body),
+         new_status = if(review.verdict == :approved, do: :approved, else: :needs_work),
+         {:ok, with_status} <- Trivium.Build.PlanIO.set_status(updated, new_status),
+         :ok <- File.write(plan_path, with_status) do
+      IO.puts(review_body)
+      System.halt(if review.verdict == :approved, do: 0, else: 2)
+    else
+      :empty ->
+        IO.puts(:stderr, "nothing to review (diff is empty)")
+        System.halt(0)
+
+      {:error, reason} ->
+        IO.puts(:stderr, "review failed: #{inspect(reason)}")
+        System.halt(1)
+    end
+  end
+
+  defp git_diff(repo, base_ref) do
+    case System.cmd("git", ["-C", repo, "diff", "#{base_ref}..HEAD"], stderr_to_stdout: true) do
+      {out, 0} -> {:ok, out}
+      {err, _} -> {:error, {:git_diff_failed, String.trim(err)}}
+    end
+  end
+
+  defp nonempty(diff) when byte_size(diff) > 0, do: :nonempty
+  defp nonempty(_), do: :empty
+
+  defp infer_repo(plan_path), do: plan_path |> Path.dirname() |> Path.dirname() |> Path.dirname()
+
+  defp format_review(%Trivium.Build.Types.Review{} = r) do
+    findings = if r.findings == [], do: "none", else: Enum.map_join(r.findings, "\n", &"- #{&1}")
+    improvements = if r.improvements == [], do: "none", else: Enum.map_join(r.improvements, "\n", &"- #{&1}")
+
+    """
+    Verdict: #{r.verdict}
+
+    Findings:
+    #{findings}
+
+    Improvements:
+    #{improvements}
+    """
+  end
 
   defp run_legacy(argv) do
     optimus =
