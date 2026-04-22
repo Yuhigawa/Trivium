@@ -4,6 +4,18 @@ defmodule Trivium.CLITest do
   alias Trivium.CLI
   alias Trivium.Types.ProjectContext
 
+  describe "plugin_version/0" do
+    test "returns the version string from .claude-plugin/plugin.json" do
+      assert is_binary(CLI.plugin_version())
+      assert Regex.match?(~r/^\d+\.\d+\.\d+/, CLI.plugin_version())
+
+      json_path = Path.expand("../../.claude-plugin/plugin.json", __DIR__)
+      {:ok, json} = File.read(json_path)
+      expected = Jason.decode!(json) |> Map.fetch!("version")
+      assert CLI.plugin_version() == expected
+    end
+  end
+
   describe "project_context_from/1 — nenhuma flag" do
     test "retorna :none quando nenhuma das três está presente" do
       assert :none = CLI.project_context_from(path: nil, type: nil, task: nil)

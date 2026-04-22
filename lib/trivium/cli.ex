@@ -17,14 +17,29 @@ defmodule Trivium.CLI do
     "analysis" => :analysis
   }
 
+  @external_resource Path.expand("../../.claude-plugin/plugin.json", __DIR__)
+  @plugin_version (case File.read(Path.expand("../../.claude-plugin/plugin.json", __DIR__)) do
+                     {:ok, json} -> Jason.decode!(json) |> Map.fetch!("version")
+                     _ -> "0.0.0"
+                   end)
+
+  @doc "Plugin version baked in at compile time from .claude-plugin/plugin.json."
+  def plugin_version, do: @plugin_version
+
   def main(argv) do
     {:ok, _} = Application.ensure_all_started(:trivium)
 
     case argv do
+      ["version" | _] -> run_version()
       ["build" | rest] -> run_build(rest)
       ["review" | rest] -> run_review(rest)
       _ -> run_legacy(argv)
     end
+  end
+
+  defp run_version do
+    IO.puts(@plugin_version)
+    System.halt(0)
   end
 
   defp run_build(rest) do
@@ -149,7 +164,7 @@ defmodule Trivium.CLI do
       Optimus.new!(
         name: "trivium",
         description: "Multi-agent task evaluator (idea-writer + tech + QA)",
-        version: "0.1.0",
+        version: @plugin_version,
         allow_unknown_args: false,
         options: [
           max_attempts: [
