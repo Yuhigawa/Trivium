@@ -26,7 +26,7 @@ defmodule Trivium.Build.Agents.Reviewer do
   """
 
   def run(%Plan{} = plan, diff, opts) when is_binary(diff) do
-    client = Keyword.get(opts, :llm_client, Config.llm_client())
+    client = Keyword.get(opts, :llm_client) || Config.llm_client()
 
     messages = [
       %{role: "system", content: @system_prompt},
