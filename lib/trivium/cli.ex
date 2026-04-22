@@ -20,6 +20,55 @@ defmodule Trivium.CLI do
   def main(argv) do
     {:ok, _} = Application.ensure_all_started(:trivium)
 
+    case argv do
+      ["build" | rest] -> run_build(rest)
+      ["review" | rest] -> run_review(rest)
+      _ -> run_legacy(argv)
+    end
+  end
+
+  defp run_build(rest) do
+    optimus =
+      Optimus.new!(
+        name: "trivium build",
+        description: "Generate plan + pre-check from a spec",
+        allow_unknown_args: false,
+        args: [
+          spec: [
+            value_name: "SPEC",
+            help: "Path to a spec file, or '-' for stdin",
+            required: true
+          ]
+        ],
+        options: [
+          path: [value_name: "DIR", long: "--path", help: "Project dir", required: true]
+        ]
+      )
+
+    %{args: %{spec: spec_arg}, options: %{path: path}} = Optimus.parse!(optimus, rest)
+
+    spec =
+      case spec_arg do
+        "-" -> IO.read(:stdio, :eof)
+        file -> File.read!(file)
+      end
+
+    ctx = %Trivium.Types.ProjectContext{path: path, type: :feature, task: spec}
+
+    case Trivium.Build.Orchestrator.build(spec, project_context: ctx) do
+      {:ok, plan_path} ->
+        IO.puts("TRIVIUM_PLAN_WRITTEN: #{plan_path}")
+        System.halt(0)
+
+      {:error, reason} ->
+        IO.puts(:stderr, "build failed: #{inspect(reason)}")
+        System.halt(1)
+    end
+  end
+
+  defp run_review(_), do: System.halt(0)
+
+  defp run_legacy(argv) do
     optimus =
       Optimus.new!(
         name: "trivium",
