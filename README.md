@@ -284,24 +284,32 @@ docker compose run --rm dev mix compile
 ```
 lib/trivium/
 ├── application.ex          # supervisor (Registry + Task.Supervisor)
-├── cli.ex                  # escript entry + Optimus arg parsing
+├── cli.ex                  # escript entry — dispatches build/review subcommands or legacy REPL/one-shot
 ├── repl.ex                 # interactive loop
-├── orchestrator.ex         # the heart — coordinates attempts
+├── orchestrator.ex         # 3-agent gate — coordinates attempts
 ├── events.ex               # Registry-based pub/sub
 ├── renderer.ex             # live colored stdout (IO.ANSI)
 ├── report.ex               # final markdown report
 ├── config.ex               # app-config accessors
-├── types.ex                # Idea, Review, Attempt, Result structs
+├── types.ex                # Idea, Review, Attempt, Result structs (gate)
 ├── llm/
 │   ├── client.ex           # behaviour
 │   ├── anthropic.ex        # HTTP + SSE streaming
 │   ├── claude_cli.ex       # subprocess to `claude -p`
 │   └── mock.ex             # deterministic, for tests
-└── agents/
-    ├── agent.ex            # behaviour + JSON review parser
-    ├── idea_writer.ex      # generates + self-reviews
-    ├── technical_researcher.ex
-    └── qa.ex
+├── agents/                 # gate agents (3-agent quorum)
+│   ├── agent.ex            # behaviour + JSON review parser
+│   ├── idea_writer.ex      # generates + self-reviews
+│   ├── technical_researcher.ex
+│   └── qa.ex
+└── build/                  # plan/build/review pipeline (post-gate)
+    ├── types.ex            # Plan, Step, PreCheck, Review (namespaced, distinct from gate types)
+    ├── plan_io.ex          # encode/decode the plan markdown artefact
+    ├── orchestrator.ex     # sequential: Planner -> PreChecker -> write plan
+    └── agents/
+        ├── planner.ex      # spec -> ordered steps with acceptance criteria
+        ├── pre_checker.ex  # plan + existing code -> :ok or :revise
+        └── reviewer.ex     # plan + git diff -> :approved or :needs_work
 ```
 
 ## License
