@@ -42,10 +42,17 @@ defmodule Trivium.CLI do
         ],
         options: [
           path: [value_name: "DIR", long: "--path", help: "Project dir", required: true]
+        ],
+        flags: [
+          auto_execute: [
+            long: "--auto-execute",
+            help: "Mark plan to auto-run /trivium-execute without human confirmation"
+          ]
         ]
       )
 
-    %{args: %{spec: spec_arg}, options: %{path: path}} = Optimus.parse!(optimus, rest)
+    %{args: %{spec: spec_arg}, options: %{path: path}, flags: %{auto_execute: auto?}} =
+      Optimus.parse!(optimus, rest)
 
     spec =
       case spec_arg do
@@ -55,7 +62,7 @@ defmodule Trivium.CLI do
 
     ctx = %Trivium.Types.ProjectContext{path: path, type: :feature, task: spec}
 
-    case Trivium.Build.Orchestrator.build(spec, project_context: ctx) do
+    case Trivium.Build.Orchestrator.build(spec, project_context: ctx, auto_execute: auto?) do
       {:ok, plan_path} ->
         IO.puts("TRIVIUM_PLAN_WRITTEN: #{plan_path}")
         System.halt(0)

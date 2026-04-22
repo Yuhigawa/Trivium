@@ -25,6 +25,7 @@ defmodule Trivium.Build.Orchestrator do
              llm_client: opts[:llm_client]
            ),
          plan = merge_pre_check(plan, pc, spec),
+         plan = %{plan | auto_execute: !!opts[:auto_execute]},
          {:ok, path} <- write_plan(project_path, plan) do
       {:ok, path}
     end

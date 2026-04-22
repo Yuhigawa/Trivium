@@ -30,6 +30,7 @@ defmodule Trivium.Build.PlanIO do
     base_ref: #{p.base_ref}
     status: #{p.status}
     trivium_version: #{p.trivium_version}
+    auto_execute: #{p.auto_execute}
     ---
 
     # Plan: #{p.topic}
@@ -87,6 +88,7 @@ defmodule Trivium.Build.PlanIO do
          context: section(body, "Context"),
          pre_check_notes: section(body, "Pre-check notes"),
          trivium_version: fm_map["trivium_version"] || "0.0.0",
+         auto_execute: fm_map["auto_execute"] == "true",
          steps: steps
        }}
     end

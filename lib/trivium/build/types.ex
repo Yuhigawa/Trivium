@@ -25,7 +25,8 @@ defmodule Trivium.Build.Types do
       :created_at,
       context: nil,
       pre_check_notes: nil,
-      trivium_version: "0.1.0"
+      trivium_version: "0.1.0",
+      auto_execute: false
     ]
 
     @type status :: :draft | :in_progress | :review_pending | :approved | :needs_work
@@ -37,7 +38,8 @@ defmodule Trivium.Build.Types do
             created_at: DateTime.t(),
             context: String.t() | nil,
             pre_check_notes: String.t() | nil,
-            trivium_version: String.t()
+            trivium_version: String.t(),
+            auto_execute: boolean()
           }
   end
 
