@@ -12,6 +12,10 @@ At the end, each returns a score from 1 to 10. If **all three** score above 7, t
 
 ## Architecture
 
+Trivium has two cooperating pipelines that share LLM and config infrastructure but are otherwise isolated. The **gate** decides whether a task is worth doing; the **build pipeline** turns approved tasks into ordered, reviewable code changes.
+
+### 1. Gate — 3-agent quorum
+
 ```
 user task
     │
@@ -46,13 +50,55 @@ user task
                     failing justifications)
 ```
 
+Slash commands: `/trivium-bug`, `/trivium-feature`, `/trivium-analysis`. Code: `Trivium.Orchestrator` + `Trivium.Agents.*`.
+
+### 2. Build pipeline — plan → execute → review
+
+After a gate-approved spec (or any time the task is ready), the build pipeline produces a single durable artefact (`docs/trivium/<date>-<slug>-plan.md`) and walks it from plan to merged code.
+
+```
+approved spec
+     │
+     ▼
+┌────────────────────┐
+│ /trivium-build     │  BuildOrchestrator (sequential, not parallel)
+│                    │
+│   Planner          │  spec  ─►  ordered steps + acceptance criteria
+│      │             │
+│      ▼             │
+│   PreChecker       │  reads existing code; flags conflicts; suggests edits
+│      │             │
+│      ▼             │
+│   write plan.md    │  YAML front-matter (base_ref, status), GFM checklist
+└────────┬───────────┘
+         │
+         │  Claude asks: "Execute now?"
+         ▼
+┌────────────────────┐
+│ /trivium-execute   │  Claude Code reads plan, ticks [x] per step,
+│                    │  status: in_progress -> review_pending
+│                    │  Auto-invokes /trivium-review on completion
+└────────┬───────────┘
+         ▼
+┌────────────────────┐
+│ /trivium-review    │  Reviewer reads plan + git diff <base_ref>..HEAD
+│                    │  Verdicts: :approved -> 0 / :needs_work -> 2
+│                    │  Appends ## Review (or ## Review (N)) to the plan
+└────────────────────┘
+```
+
+Slash commands: `/trivium-build`, `/trivium-execute`, `/trivium-review`. Code: `Trivium.Build.Orchestrator` + `Trivium.Build.Agents.*` + `Trivium.Build.PlanIO`.
+
+The pipeline is intentionally human-in-the-loop at the implementation step. There is no autonomous "Coder" agent — Claude Code (or the user) executes the steps. Trivium owns the plan artefact and the verdicts; the implementer owns the diff.
+
 ### Isolation guarantees
 
-1. Each agent runs in a separate `Task` — no shared memory.
+1. Each gate agent runs in a separate `Task` — no shared memory.
 2. The orchestrator is the only process that sees all outputs.
 3. Each LLM call is a fresh conversation — no cross-session history.
 4. The idea-writer's refinement prompt contains justifications only from reviewers who **failed** the idea; approvers' opinions are never surfaced.
 5. Enforced in tests: `test/trivium/orchestrator_test.exs` injects unique sentinels into QA and tech responses and asserts that neither ever appears in the other's input.
+6. Gate types (`Trivium.Types`) and build types (`Trivium.Build.Types`) are kept in separate namespaces so the two pipelines cannot accidentally share state — notably both have a `Review` struct with different shapes.
 
 ## Quick start
 
