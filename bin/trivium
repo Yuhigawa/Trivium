@@ -21,13 +21,20 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ARGS=("$@")
 MOUNT_ARGS=()
 
+# build/review subcommands need to write the plan file under <path>/docs/trivium,
+# so they get a read-write mount. Everything else (gate evaluations) stays RO.
+MOUNT_MODE="ro"
+if [[ "${ARGS[0]:-}" == "build" || "${ARGS[0]:-}" == "review" ]]; then
+  MOUNT_MODE="rw"
+fi
+
 for i in "${!ARGS[@]}"; do
   if [[ "${ARGS[$i]}" == "--path" && $((i + 1)) -lt ${#ARGS[@]} ]]; then
     raw="${ARGS[$((i + 1))]}"
     if [[ -d "$raw" ]]; then
       abs="$(cd "$raw" && pwd -P)"
       ARGS[$((i + 1))]="$abs"
-      MOUNT_ARGS+=("-v" "$abs:$abs:ro")
+      MOUNT_ARGS+=("-v" "$abs:$abs:$MOUNT_MODE")
     fi
   fi
 done
