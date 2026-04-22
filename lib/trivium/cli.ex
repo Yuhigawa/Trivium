@@ -30,7 +30,7 @@ defmodule Trivium.CLI do
   defp run_build(rest) do
     optimus =
       Optimus.new!(
-        name: "trivium build",
+        name: "trivium_build",
         description: "Generate plan + pre-check from a spec",
         allow_unknown_args: false,
         args: [
@@ -76,7 +76,7 @@ defmodule Trivium.CLI do
   defp run_review(rest) do
     optimus =
       Optimus.new!(
-        name: "trivium review",
+        name: "trivium_review",
         description: "Review a diff against a plan",
         allow_unknown_args: false,
         args: [
