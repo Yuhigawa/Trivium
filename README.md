@@ -244,11 +244,23 @@ No Elixir / Erlang on the host. First-run builds the image and compiles the escr
 
 ### Commands
 
+**Gate (3-agent quorum)** — score a task before committing to it:
+
 - `/trivium-bug <description>` — root-cause analysis + fix proposal
 - `/trivium-feature <description>` — problem/solution/scope spec
 - `/trivium-analysis <description>` — findings-only pass (no solution proposed)
 
+**Pipeline (build → execute → review)** — take an approved spec through plan, implementation, and review:
+
+- `/trivium-build <spec or path>` — generate an ordered plan + pre-check, then ask if you want to execute it now
+- `/trivium-execute <plan-path>` — implement the plan step by step, ticking each acceptance, and auto-trigger review when done
+- `/trivium-review <plan-path>` — run the reviewer against `git diff <base_ref>..HEAD` and append findings to the plan
+
 Each command runs against `$PWD` and invokes the `bin/trivium` wrapper in this repo, which handles Docker + dynamic path mounting automatically. If Docker isn't running, the command fails fast with a clear error.
+
+### Pipeline mode (build → execute → review)
+
+After a spec passes the gate (or any time you have a task ready to plan), `/trivium-build` produces a single durable artefact at `docs/trivium/<date>-<slug>-plan.md` in the target project. The plan has YAML front-matter (`base_ref`, `status`), a checklist of steps with acceptance criteria, and a `## Pre-check notes` section flagging conflicts with existing code. `/trivium-execute` walks the checklist and `/trivium-review` validates the resulting `git diff base_ref..HEAD` — the review verdict and findings are appended to the same file, preserving history across re-runs.
 
 ### Skill
 
