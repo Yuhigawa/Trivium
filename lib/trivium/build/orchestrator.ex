@@ -32,7 +32,7 @@ defmodule Trivium.Build.Orchestrator do
   end
 
   defp current_head(repo_path) do
-    case System.cmd("git", ["-C", repo_path, "rev-parse", "HEAD"], stderr_to_stdout: true) do
+    case System.cmd("git", ["-c", "safe.directory=*", "-C", repo_path, "rev-parse", "HEAD"], stderr_to_stdout: true) do
       {sha, 0} -> {:ok, String.trim(sha)}
       {err, _} -> {:error, {:no_base_ref, String.trim(err)}}
     end

@@ -118,7 +118,7 @@ defmodule Trivium.CLI do
   end
 
   defp git_diff(repo, base_ref) do
-    case System.cmd("git", ["-C", repo, "diff", "#{base_ref}..HEAD"], stderr_to_stdout: true) do
+    case System.cmd("git", ["-c", "safe.directory=*", "-C", repo, "diff", "#{base_ref}..HEAD"], stderr_to_stdout: true) do
       {out, 0} -> {:ok, out}
       {err, _} -> {:error, {:git_diff_failed, String.trim(err)}}
     end
