@@ -128,7 +128,8 @@ defmodule Trivium.CLI do
     with {:ok, md} <- File.read(plan_path),
          {:ok, plan} <- Trivium.Build.PlanIO.decode(md),
          repo_path = opt_path || infer_repo(plan_path),
-         {:ok, diff} <- git_diff(repo_path, plan.base_ref),
+         {:ok, raw_diff} <- git_diff(repo_path, plan.base_ref),
+         diff = filter_diff(raw_diff),
          :nonempty <- nonempty(diff),
          {:ok, review} <- Trivium.Build.Agents.Reviewer.run(plan, diff, []),
          review_body = format_review(review),
@@ -147,6 +148,19 @@ defmodule Trivium.CLI do
         IO.puts(:stderr, "review failed: #{inspect(reason)}")
         System.halt(1)
     end
+  end
+
+  defp filter_diff(raw) do
+    filtered = Trivium.Build.DiffFilter.filter(raw)
+    raw_size = byte_size(raw)
+    new_size = byte_size(filtered)
+
+    if raw_size > 0 do
+      pct = trunc((raw_size - new_size) * 100 / raw_size)
+      IO.puts(:stderr, "DiffFilter: #{raw_size} -> #{new_size} bytes (-#{pct}%)")
+    end
+
+    filtered
   end
 
   defp git_diff(repo, base_ref) do
