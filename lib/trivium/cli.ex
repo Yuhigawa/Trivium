@@ -17,14 +17,31 @@ defmodule Trivium.CLI do
     "analysis" => :analysis
   }
 
-  @external_resource Path.expand("../../.claude-plugin/plugin.json", __DIR__)
-  @plugin_version (case File.read(Path.expand("../../.claude-plugin/plugin.json", __DIR__)) do
-                     {:ok, json} -> Jason.decode!(json) |> Map.fetch!("version")
-                     _ -> "0.0.0"
+  @plugin_json_path Path.expand("../../.claude-plugin/plugin.json", __DIR__)
+  @external_resource @plugin_json_path
+  @plugin_version (case File.read(@plugin_json_path) do
+                     {:ok, json} ->
+                       Jason.decode!(json) |> Map.fetch!("version")
+
+                     {:error, reason} ->
+                       IO.warn(
+                         "Trivium.CLI: could not read #{@plugin_json_path} at compile time " <>
+                           "(#{inspect(reason)}); plugin_version/0 will return \"0.0.0\". " <>
+                           "Make sure the plugin manifest exists before compiling.",
+                         []
+                       )
+
+                       "0.0.0"
                    end)
 
   @doc "Plugin version baked in at compile time from .claude-plugin/plugin.json."
   def plugin_version, do: @plugin_version
+
+  @doc false
+  def write_version(io \\ :stdio) do
+    IO.puts(io, @plugin_version)
+    :ok
+  end
 
   def main(argv) do
     {:ok, _} = Application.ensure_all_started(:trivium)
@@ -38,7 +55,7 @@ defmodule Trivium.CLI do
   end
 
   defp run_version do
-    IO.puts(@plugin_version)
+    write_version()
     System.halt(0)
   end
 

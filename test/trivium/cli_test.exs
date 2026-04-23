@@ -16,6 +16,13 @@ defmodule Trivium.CLITest do
     end
   end
 
+  describe "version subcommand output" do
+    test "write_version/1 prints exactly the plugin version + newline" do
+      output = ExUnit.CaptureIO.capture_io(fn -> CLI.write_version() end)
+      assert output == CLI.plugin_version() <> "\n"
+    end
+  end
+
   describe "project_context_from/1 — nenhuma flag" do
     test "retorna :none quando nenhuma das três está presente" do
       assert :none = CLI.project_context_from(path: nil, type: nil, task: nil)
