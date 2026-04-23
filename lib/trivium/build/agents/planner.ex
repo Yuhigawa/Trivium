@@ -33,7 +33,7 @@ defmodule Trivium.Build.Agents.Planner do
 
   def run(spec, opts) do
     base_ref = Keyword.fetch!(opts, :base_ref)
-    client = Keyword.get(opts, :llm_client, Config.llm_client())
+    client = Keyword.get(opts, :llm_client) || Config.llm_client()
     project_context = Keyword.get(opts, :project_context)
 
     messages = [

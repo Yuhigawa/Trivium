@@ -30,6 +30,7 @@ defmodule Trivium.Build.PlanIO do
     base_ref: #{p.base_ref}
     status: #{p.status}
     trivium_version: #{p.trivium_version}
+    auto_execute: #{p.auto_execute}
     ---
 
     # Plan: #{p.topic}
@@ -87,6 +88,7 @@ defmodule Trivium.Build.PlanIO do
          context: section(body, "Context"),
          pre_check_notes: section(body, "Pre-check notes"),
          trivium_version: fm_map["trivium_version"] || "0.0.0",
+         auto_execute: fm_map["auto_execute"] == "true",
          steps: steps
        }}
     end
@@ -179,9 +181,10 @@ defmodule Trivium.Build.PlanIO do
 
   @spec set_status(String.t(), Plan.status()) :: {:ok, String.t()} | {:error, term()}
   def set_status(markdown, status) when status in @status_atoms do
-    case Regex.replace(~r/^status:.*$/m, markdown, "status: #{status}", global: false) do
-      ^markdown -> {:error, :status_line_not_found}
-      updated -> {:ok, updated}
+    if Regex.match?(~r/^status:.*$/m, markdown) do
+      {:ok, Regex.replace(~r/^status:.*$/m, markdown, "status: #{status}", global: false)}
+    else
+      {:error, :status_line_not_found}
     end
   end
 

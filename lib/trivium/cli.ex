@@ -17,20 +17,52 @@ defmodule Trivium.CLI do
     "analysis" => :analysis
   }
 
+  @plugin_json_path Path.expand("../../.claude-plugin/plugin.json", __DIR__)
+  @external_resource @plugin_json_path
+  @plugin_version (case File.read(@plugin_json_path) do
+                     {:ok, json} ->
+                       Jason.decode!(json) |> Map.fetch!("version")
+
+                     {:error, reason} ->
+                       IO.warn(
+                         "Trivium.CLI: could not read #{@plugin_json_path} at compile time " <>
+                           "(#{inspect(reason)}); plugin_version/0 will return \"0.0.0\". " <>
+                           "Make sure the plugin manifest exists before compiling.",
+                         []
+                       )
+
+                       "0.0.0"
+                   end)
+
+  @doc "Plugin version baked in at compile time from .claude-plugin/plugin.json."
+  def plugin_version, do: @plugin_version
+
+  @doc false
+  def write_version(io \\ :stdio) do
+    IO.puts(io, @plugin_version)
+    :ok
+  end
+
   def main(argv) do
     {:ok, _} = Application.ensure_all_started(:trivium)
 
     case argv do
+      ["version" | _] -> run_version()
       ["build" | rest] -> run_build(rest)
       ["review" | rest] -> run_review(rest)
       _ -> run_legacy(argv)
     end
   end
 
+  defp run_version do
+    write_version()
+    System.halt(0)
+  end
+
   defp run_build(rest) do
     optimus =
       Optimus.new!(
-        name: "trivium build",
+        name: "trivium_build",
         description: "Generate plan + pre-check from a spec",
         allow_unknown_args: false,
         args: [
@@ -42,10 +74,17 @@ defmodule Trivium.CLI do
         ],
         options: [
           path: [value_name: "DIR", long: "--path", help: "Project dir", required: true]
+        ],
+        flags: [
+          auto_execute: [
+            long: "--auto-execute",
+            help: "Mark plan to auto-run /trivium-execute without human confirmation"
+          ]
         ]
       )
 
-    %{args: %{spec: spec_arg}, options: %{path: path}} = Optimus.parse!(optimus, rest)
+    %{args: %{spec: spec_arg}, options: %{path: path}, flags: %{auto_execute: auto?}} =
+      Optimus.parse!(optimus, rest)
 
     spec =
       case spec_arg do
@@ -55,7 +94,7 @@ defmodule Trivium.CLI do
 
     ctx = %Trivium.Types.ProjectContext{path: path, type: :feature, task: spec}
 
-    case Trivium.Build.Orchestrator.build(spec, project_context: ctx) do
+    case Trivium.Build.Orchestrator.build(spec, project_context: ctx, auto_execute: auto?) do
       {:ok, plan_path} ->
         IO.puts("TRIVIUM_PLAN_WRITTEN: #{plan_path}")
         System.halt(0)
@@ -69,7 +108,7 @@ defmodule Trivium.CLI do
   defp run_review(rest) do
     optimus =
       Optimus.new!(
-        name: "trivium review",
+        name: "trivium_review",
         description: "Review a diff against a plan",
         allow_unknown_args: false,
         args: [
@@ -111,7 +150,7 @@ defmodule Trivium.CLI do
   end
 
   defp git_diff(repo, base_ref) do
-    case System.cmd("git", ["-C", repo, "diff", "#{base_ref}..HEAD"], stderr_to_stdout: true) do
+    case System.cmd("git", ["-c", "safe.directory=*", "-C", repo, "diff", "#{base_ref}..HEAD"], stderr_to_stdout: true) do
       {out, 0} -> {:ok, out}
       {err, _} -> {:error, {:git_diff_failed, String.trim(err)}}
     end
@@ -142,7 +181,7 @@ defmodule Trivium.CLI do
       Optimus.new!(
         name: "trivium",
         description: "Multi-agent task evaluator (idea-writer + tech + QA)",
-        version: "0.1.0",
+        version: @plugin_version,
         allow_unknown_args: false,
         options: [
           max_attempts: [

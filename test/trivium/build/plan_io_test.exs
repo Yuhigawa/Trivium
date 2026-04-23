@@ -87,6 +87,11 @@ defmodule Trivium.Build.PlanIOTest do
     assert parsed.topic == @sample.topic
   end
 
+  test "set_status is a no-op (still :ok) when target equals current status" do
+    md = PlanIO.encode(%{@sample | status: :needs_work})
+    assert {:ok, ^md} = PlanIO.set_status(md, :needs_work)
+  end
+
   test "tick_step marks the matching index as done" do
     md = PlanIO.encode(@sample)
     {:ok, mutated} = PlanIO.tick_step(md, 1)

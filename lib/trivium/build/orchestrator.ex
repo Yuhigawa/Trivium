@@ -25,13 +25,14 @@ defmodule Trivium.Build.Orchestrator do
              llm_client: opts[:llm_client]
            ),
          plan = merge_pre_check(plan, pc, spec),
+         plan = %{plan | auto_execute: !!opts[:auto_execute]},
          {:ok, path} <- write_plan(project_path, plan) do
       {:ok, path}
     end
   end
 
   defp current_head(repo_path) do
-    case System.cmd("git", ["-C", repo_path, "rev-parse", "HEAD"], stderr_to_stdout: true) do
+    case System.cmd("git", ["-c", "safe.directory=*", "-C", repo_path, "rev-parse", "HEAD"], stderr_to_stdout: true) do
       {sha, 0} -> {:ok, String.trim(sha)}
       {err, _} -> {:error, {:no_base_ref, String.trim(err)}}
     end

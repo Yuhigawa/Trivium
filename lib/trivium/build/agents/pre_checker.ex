@@ -28,7 +28,7 @@ defmodule Trivium.Build.Agents.PreChecker do
   """
 
   def run(%Plan{} = plan, opts) do
-    client = Keyword.get(opts, :llm_client, Config.llm_client())
+    client = Keyword.get(opts, :llm_client) || Config.llm_client()
     project_context = Keyword.fetch!(opts, :project_context)
 
     messages = [
