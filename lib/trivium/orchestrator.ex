@@ -5,7 +5,7 @@ defmodule Trivium.Orchestrator do
   Fluxo por tentativa:
   1. `IdeaWriter.run/2` (sozinho) → `%Idea{}`
   2. Em paralelo (3 Tasks): `IdeaWriter.self_review/1`, `TechnicalResearcher.run/1`, `QA.run/1`
-  3. Se todas reviews > threshold → :approved.
+  3. Se todas reviews >= threshold → :approved.
      Senão e n < max → próxima tentativa passando só as reviews REPROVADAS.
      Senão → :rejected.
 
@@ -165,7 +165,7 @@ defmodule Trivium.Orchestrator do
   end
 
   defp all_pass?(reviews, threshold) do
-    length(reviews) == 3 and Enum.all?(reviews, &(&1.score > threshold))
+    length(reviews) == 3 and Enum.all?(reviews, &(&1.score >= threshold))
   end
 
   defp build_result({:error, reason, acc}, _threshold, _session_id, project_context) do

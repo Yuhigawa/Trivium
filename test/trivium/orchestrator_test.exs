@@ -15,7 +15,7 @@ defmodule Trivium.OrchestratorTest do
   end
 
   describe "evaluate/2 — caminho feliz" do
-    test "aprova quando todos os 3 agentes dão score > threshold" do
+    test "aprova quando todos os 3 agentes dão score >= threshold" do
       idea_md = """
       ## Problema
       X
@@ -44,6 +44,18 @@ defmodule Trivium.OrchestratorTest do
       assert length(reviews) == 3
       assert length(attempts) == 1
       assert Enum.all?(reviews, &(&1.score > 7))
+    end
+
+    test "aprova quando o score é exatamente igual ao threshold (>= 7)" do
+      Mock.set_script(:idea_writer, ["ideia"])
+      Mock.set_script(:idea_writer_review, [~s({"score": 7, "justification": "exato"})])
+      Mock.set_script(:technical_researcher, [~s({"score": 7, "justification": "exato"})])
+      Mock.set_script(:qa, [~s({"score": 7, "justification": "exato"})])
+
+      result = Orchestrator.evaluate("X", llm_client: Mock, max_attempts: 1, threshold: 7)
+
+      assert %Result{status: :approved, final_reviews: reviews} = result
+      assert Enum.all?(reviews, &(&1.score == 7))
     end
   end
 

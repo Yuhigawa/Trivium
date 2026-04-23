@@ -1,7 +1,7 @@
 {
   "name": "trivium",
-  "version": "0.3.0",
-  "description": "Multi-agent task evaluator. Three isolated reviewers (idea-writer, technical-researcher, QA) score a task 1-10 independently; passes only if all three score > 7. Use to gate bugs, features, or code-analysis tasks before committing to implementation.",
+  "version": "0.4.0",
+  "description": "Multi-agent task evaluator. Three isolated reviewers (idea-writer, technical-researcher, QA) score a task 1-10 independently; passes only if all three score >= 7. Use to gate bugs, features, or code-analysis tasks before committing to implementation.",
   "author": {
     "name": "Yuhigawa",
     "url": "https://github.com/Yuhigawa"

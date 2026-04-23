@@ -1,11 +1,11 @@
 ---
 name: trivium
-description: Use when the user wants independent validation before implementation — "gate this first", "is this idea sound?", "analyze this module before I touch it", diagnosing a bug's root cause before writing the fix, or green-lighting a feature spec. Trivium runs three isolated reviewers (idea-writer, technical, QA) that each score 1-10 without seeing each other's output; approval requires all three > 7. Prefer this over making the call yourself when the user explicitly asks for a second opinion or wants friction before writing code.
+description: Use when the user wants independent validation before implementation — "gate this first", "is this idea sound?", "analyze this module before I touch it", diagnosing a bug's root cause before writing the fix, or green-lighting a feature spec. Trivium runs three isolated reviewers (idea-writer, technical, QA) that each score 1-10 without seeing each other's output; approval requires all three >= 7. Prefer this over making the call yourself when the user explicitly asks for a second opinion or wants friction before writing code.
 ---
 
 # Trivium — multi-agent task evaluator
 
-Trivium is a CLI that runs three isolated Claude subprocesses to evaluate a task against a real codebase. Each agent forms its own opinion; only when all three score > 7 does the task get approved. If any fails, the idea-writer refines from the failing reviewers' feedback (up to `--max-attempts`, default 3).
+Trivium is a CLI that runs three isolated Claude subprocesses to evaluate a task against a real codebase. Each agent forms its own opinion; only when all three score >= 7 does the task get approved. If any fails, the idea-writer refines from the failing reviewers' feedback (up to `--max-attempts`, default 3).
 
 ## When to invoke
 

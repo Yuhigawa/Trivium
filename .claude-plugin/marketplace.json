@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "trivium",
-      "description": "Three isolated reviewers (idea-writer, technical-researcher, QA) score a task 1-10 independently; passes only if all three score > 7. Use /trivium-bug, /trivium-feature, /trivium-analysis against any project.",
+      "description": "Three isolated reviewers (idea-writer, technical-researcher, QA) score a task 1-10 independently; passes only if all three score >= 7. Use /trivium-bug, /trivium-feature, /trivium-analysis against any project.",
       "category": "development",
       "source": "./",
       "homepage": "https://github.com/Yuhigawa/Trivium"

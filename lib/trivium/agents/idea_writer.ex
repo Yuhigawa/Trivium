@@ -242,7 +242,7 @@ defmodule Trivium.Agents.IdeaWriter do
     |> Enum.map(fn %Attempt{n: n, idea: idea, reviews: reviews} ->
       failed =
         reviews
-        |> Enum.filter(&(&1.score <= Trivium.Config.approval_threshold()))
+        |> Enum.filter(&(&1.score < Trivium.Config.approval_threshold()))
 
       review_block =
         failed

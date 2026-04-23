@@ -43,7 +43,7 @@ defmodule Trivium.Agents.QA do
   - Regressão: pontos colaterais foram considerados?
   - É possível escrever um teste que CAIA sem o fix e PASSE com ele?
 
-  ### Checklist — antes de dar score alto (> 7), todos devem ser SIM
+  ### Checklist — antes de dar score alto (>= 7), todos devem ser SIM
   1. Existe um comando de teste CONCRETO e específico pra validar (não apenas
      "testar manualmente")?
   2. Esse teste claramente falharia sem o fix e passaria com ele?

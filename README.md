@@ -41,7 +41,7 @@ user task
           3 independent scores
                  │
          ┌───────┴───────┐
-         │ all > 7 ?     │
+         │ all >= 7 ?    │
          └───┬───────┬───┘
              │ yes   │ no
              ▼       ▼
@@ -251,7 +251,7 @@ APIs without rate limiting are vulnerable to abuse...
 | Streaming output | on | `--no-stream` to disable |
 | LLM client | `ClaudeCLI` | `config/config.exs` |
 | API key (for `Anthropic` client) | — | `ANTHROPIC_API_KEY` env |
-| Approval threshold | `> 7` | `config/config.exs` (`approval_threshold`) |
+| Approval threshold | `>= 7` | `config/config.exs` (`approval_threshold`) |
 | Model per role | Opus / Sonnet / Haiku | `config/config.exs` (`models`) |
 | Project dir | — | `--path DIR` (requires `--type` + `--task`) |
 | Task type | — | `--type bug\|feature\|analysis` |

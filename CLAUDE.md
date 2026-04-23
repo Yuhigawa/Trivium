@@ -8,7 +8,7 @@ Trivium is an Elixir escript that gates and develops software tasks via isolated
 
 Two pipelines coexist:
 
-1. **Gate (3-agent quorum)** — `Trivium.Orchestrator` runs `IdeaWriter` (with self-review), `TechnicalResearcher`, and `QA` in parallel. A task is approved only if all three score > 7. Used by `/trivium-bug|feature|analysis`.
+1. **Gate (3-agent quorum)** — `Trivium.Orchestrator` runs `IdeaWriter` (with self-review), `TechnicalResearcher`, and `QA` in parallel. A task is approved only if all three score >= 7. Used by `/trivium-bug|feature|analysis`.
 2. **Build pipeline (Planner → PreChecker → execute → Reviewer)** — `Trivium.Build.Orchestrator` turns an approved spec into a plan file, validates it against existing code, and (after the user implements) reviews the diff. Used by `/trivium-build|execute|review`.
 
 The pipelines are deliberately isolated: gate types live under `Trivium.Types`, build types under `Trivium.Build.Types`. **Do not rename or merge them** — the namespace boundary keeps the two flows independent.
