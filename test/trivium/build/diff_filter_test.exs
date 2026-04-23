@@ -96,6 +96,38 @@ defmodule Trivium.Build.DiffFilterTest do
     refute String.contains?(out, "mix.lock")
   end
 
+  test "drops Trivium's own plan artefacts (Reviewer already gets the plan)" do
+    diff = """
+    diff --git a/docs/trivium/2026-04-23-foo-plan.md b/docs/trivium/2026-04-23-foo-plan.md
+    --- a/docs/trivium/2026-04-23-foo-plan.md
+    +++ b/docs/trivium/2026-04-23-foo-plan.md
+    @@ -1 +1 @@
+    -old
+    +new
+    """
+
+    assert DiffFilter.filter(diff) == ""
+  end
+
+  test "drops top-level trivium spec markdown files" do
+    diff = """
+    diff --git a/trivium-spec-foo.md b/trivium-spec-foo.md
+    --- a/trivium-spec-foo.md
+    +++ b/trivium-spec-foo.md
+    @@ -1 +1 @@
+    -a
+    +b
+    diff --git a/.smoke-spec.md b/.smoke-spec.md
+    --- a/.smoke-spec.md
+    +++ b/.smoke-spec.md
+    @@ -1 +1 @@
+    -x
+    +y
+    """
+
+    assert DiffFilter.filter(diff) == ""
+  end
+
   test "does not match a file just because its path contains a drop substring" do
     diff = """
     diff --git a/lib/my_node_modules_helper.ex b/lib/my_node_modules_helper.ex

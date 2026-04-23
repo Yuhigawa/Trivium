@@ -26,7 +26,12 @@ defmodule Trivium.Build.DiffFilter do
     ~r{(^|/)dist/},
     ~r{(^|/)build/},
     ~r{(^|/)\.next/},
-    ~r{^trivium$}
+    ~r{^trivium$},
+    # Trivium's own artefacts — Reviewer already receives the plan separately,
+    # and the spec is upstream context that doesn't change between build/review.
+    ~r{(^|/)docs/trivium/},
+    ~r{^trivium-spec.*\.md$},
+    ~r{(^|/)\.smoke-spec\.md$}
   ]
 
   @spec filter(binary()) :: binary()
