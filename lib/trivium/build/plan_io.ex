@@ -181,9 +181,10 @@ defmodule Trivium.Build.PlanIO do
 
   @spec set_status(String.t(), Plan.status()) :: {:ok, String.t()} | {:error, term()}
   def set_status(markdown, status) when status in @status_atoms do
-    case Regex.replace(~r/^status:.*$/m, markdown, "status: #{status}", global: false) do
-      ^markdown -> {:error, :status_line_not_found}
-      updated -> {:ok, updated}
+    if Regex.match?(~r/^status:.*$/m, markdown) do
+      {:ok, Regex.replace(~r/^status:.*$/m, markdown, "status: #{status}", global: false)}
+    else
+      {:error, :status_line_not_found}
     end
   end
 
